@@ -1,7 +1,6 @@
-import Exceptions.OOP4ObjectInstantiationFailedException;
-import Exceptions.OOP4AmbiguousMethodException;
-import Exceptions.OOP4MethodInvocationFailedException;
-import Exceptions.OOP4NoSuchMethodException;
+package Solution;
+
+import Provided.*;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -101,45 +100,50 @@ public class OOPObject {
             OOP4AmbiguousMethodException, OOP4NoSuchMethodException, OOP4MethodInvocationFailedException {
         // TODO: Implement
         Object res = null;
-        List<Class<?>> argsTypesList = new ArrayList<Class<?>>();
+        ArrayList<Class<?>> argsTypesList = new ArrayList<Class<?>>();
         for(Object arg : callArgs){
             argsTypesList.add(arg.getClass());
         }
-        Class<?>[] argTypes = (Class<?>[])(argsTypesList.toArray());
+        Class<?>[] argTypes =  argsTypesList.toArray(new Class<?>[0]);
         Object definingObject = definingObject(methodName, argTypes);
         try {
-            res = definingObject.getClass().getMethod(methodName, argTypes);
+            Method method = definingObject.getClass().getMethod(methodName, argTypes);
+            res = method.invoke(definingObject, callArgs);
         } catch (NoSuchMethodException e){
             assert(false); //should never happen
+        } catch (IllegalAccessException e) { //TODO: handle exceptions
+            e.printStackTrace();
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
         }
         return res;
     }
-/*
-    public Object invoke(String methodName, Object... callArgs) throws
-            OOP4AmbiguousMethodException, OOP4NoSuchMethodException, OOP4MethodInvocationFailedException {
-        // TODO: Implement
-        Object res = null;
-        res = thisMethodInvoke(methodName, callArgs);
-        //if this does'nt have such method
-        if(res == null) {
-            Object tmpRes = null;
-            for (Object obj : directParents){
-                if(obj instanceof OOPObject){
-                    if(res == null) {
-                        res = ((OOPObject) obj).invoke(methodName, callArgs);
-                    } else {
-                        tmpRes = ((OOPObject) obj).invoke(methodName, callArgs);
-                        break;
+    /*
+        public Object invoke(String methodName, Object... callArgs) throws
+                OOP4AmbiguousMethodException, OOP4NoSuchMethodException, OOP4MethodInvocationFailedException {
+            // TODO: Implement
+            Object res = null;
+            res = thisMethodInvoke(methodName, callArgs);
+            //if this does'nt have such method
+            if(res == null) {
+                Object tmpRes = null;
+                for (Object obj : directParents){
+                    if(obj instanceof OOPObject){
+                        if(res == null) {
+                            res = ((OOPObject) obj).invoke(methodName, callArgs);
+                        } else {
+                            tmpRes = ((OOPObject) obj).invoke(methodName, callArgs);
+                            break;
+                        }
                     }
                 }
+                if(res != null && tmpRes != null) throw new OOP4AmbiguousMethodException();
+                if(res != null) return res;
             }
-            if(res != null && tmpRes != null) throw new OOP4AmbiguousMethodException();
-            if(res != null) return res;
+            if(res == null) throw new OOP4NoSuchMethodException();
+            return res;
         }
-        if(res == null) throw new OOP4NoSuchMethodException();
-        return res;
-    }
-*/
+    */
     private boolean methodsEquals(Method m1, Method m2){
         return Arrays.equals(m1.getParameterTypes(), m2.getParameterTypes())
                 && m1.getName().equals(m2.getName());
