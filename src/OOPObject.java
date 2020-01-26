@@ -154,6 +154,9 @@ public class OOPObject {
         int params_count = argTypes.length;
         Method[] decalred_methods = my_class.getDeclaredMethods();
         for (Method method : decalred_methods) {
+            if (Modifier.isPrivate(method.getModifiers())) { //TODO: deal with private methods: just continue, they irrelevant
+                continue;
+            }
             int method_params_count = method.getParameterCount();
             if (method.getName().equals(methodName) && params_count == method_params_count) {
                 Class<?>[] methodArgTypes = method.getParameterTypes();
