@@ -38,6 +38,7 @@ public class OOPObject {
         this.virtualAncestor = new HashMap<>();
     }
 
+    //A inherits from B ?
     public boolean multInheritsFrom(Class<?> cls) {
 
 //        if (this.directParents != null) {
@@ -48,16 +49,18 @@ public class OOPObject {
         }
         Class<?> my_class = this.getClass();
         // case A == B
-        if (cls == my_class) {
+        if (my_class == cls) {
             return true;
         } // case of A is regular son of B
-        if (cls.isInstance(this)) {
+        if (my_class.isInstance(cls)) {
             return true;
         } // case of A is OOP_son of B, or OOP_son of a C which is regular son of B
-        if (directParents.stream()
-                .anyMatch(parent -> parent.getClass() == cls ||  parent.getClass().isInstance(cls))) {
-            return true;
-        } // case of A is OOP_son of C which is OOP_son of B
+        for(Object parent_obj : directParents){
+            if(parent_obj.getClass() == cls ||
+                    cls.isAssignableFrom(parent_obj.getClass()))
+                return true;
+        }
+         // case of A is OOP_son of C which is OOP_son of B
         return directParents.stream()
                 .filter(parent -> parent instanceof OOPObject)
                 .anyMatch(parent -> ((OOPObject) parent).multInheritsFrom(cls));
@@ -74,22 +77,33 @@ public class OOPObject {
             throws OOP4AmbiguousMethodException {
         Object res = null;
         res = getObjectOfMethod(methodName, argTypes);
+        if(res !=null) return res;
+        //res = getObjectOfInheritedMethod(this, methodName, argTypes);
+        //assert(res!=null);
         //if this does'nt have such method
         if(res == null) {
             Object tmpRes = null;
             for (Object obj : directParents) {
-                if(obj instanceof OOPObject) {
+                //if(obj instanceof OOPObject) {
                     if(res == null) {
                         //first found parent-object of method
-                        res = ((OOPObject) obj)
-                                .definingObjectRec(methodName, argTypes);
+                        if(obj instanceof OOPObject) {
+                            res = ((OOPObject) obj)
+                                    .definingObjectRec(methodName, argTypes);
+                        } else {
+                            res = getObjectOfInheritedMethod(obj, methodName, argTypes);
+                        }
                     } else {
                         //second found parent-object of method
-                        tmpRes = ((OOPObject) obj)
-                                .definingObjectRec(methodName, argTypes);
-                        if(tmpRes != null) break;
+                        if(obj instanceof OOPObject) {
+                            tmpRes = ((OOPObject) obj)
+                                    .definingObjectRec(methodName, argTypes);
+                            if (tmpRes != null) break;
+                        } else {
+                            res = getObjectOfInheritedMethod(obj, methodName, argTypes);
+                        }
                     }
-                }
+                //}
             }
             if(res != null && tmpRes != null) throw new OOP4AmbiguousMethodException();
         }
@@ -115,6 +129,7 @@ public class OOPObject {
             e.printStackTrace();
         } catch (InvocationTargetException e) {
             e.printStackTrace();
+            throw new OOP4MethodInvocationFailedException();
         }
         return res;
     }
@@ -144,7 +159,7 @@ public class OOPObject {
             return res;
         }
     */
-    private boolean methodsEquals(Method m1, Method m2){
+    static private boolean methodsEquals(Method m1, Method m2){
         return Arrays.equals(m1.getParameterTypes(), m2.getParameterTypes())
                 && m1.getName().equals(m2.getName());
     }
@@ -169,39 +184,42 @@ public class OOPObject {
     }
 
     //TODO: check the ... (maybe [])
-    private Object getObjectOfInheritedMethod(String methodName,
-                                              Class<?> ...argTypes)
+    static private Object getObjectOfInheritedMethod(Object suspectedToDefine,
+                                                     String methodName,
+                                                     Class<?> ...argTypes)
             throws OOP4AmbiguousMethodException {
-        Class<?> my_class = this.getClass();
+        Class<?> my_class = suspectedToDefine.getClass();
         Method[] all_methods = my_class.getMethods();
         Method[] decalred_methods = my_class.getDeclaredMethods();
+        /*
         Object[] inherited_methods = Arrays.stream(all_methods)
                 .distinct().filter(method1 -> Arrays.stream(decalred_methods)
                         .allMatch(method2 -> !methodsEquals(method1, method2)))
                 .toArray();
+         */
         Object foundObjectOfMethod = null;
         int params_count = argTypes.length;
-        for (Object method_obj : inherited_methods) {
+        for (Object method_obj : all_methods) {
             Method method = (Method)method_obj;
             int method_params_count = method.getParameterCount();
             if (method.getName().equals(methodName) && params_count == method_params_count) {
                 Class<?>[] methodArgTypes = method.getParameterTypes();
                 if(Arrays.equals(argTypes, methodArgTypes)){
-                    if(foundObjectOfMethod == null ) foundObjectOfMethod = this;
+                    if(foundObjectOfMethod == null ) foundObjectOfMethod = suspectedToDefine;
                     else throw new OOP4AmbiguousMethodException();
                 }
             }
         }
 
-        return null;
+        return foundObjectOfMethod;
     }
 
     private Object getObjectOfMethod(String methodName, Class<?> ...argTypes)
             throws OOP4AmbiguousMethodException {
         Object objOfMethod = null;
         objOfMethod = getObjectOfDecalredMethod(methodName, argTypes);
-        if(objOfMethod != null) return objOfMethod;
-        objOfMethod = getObjectOfInheritedMethod(methodName, argTypes);
+        //if(objOfMethod != null) return objOfMethod;
+        //objOfMethod = getObjectOfInheritedMethod(methodName, argTypes);
         return objOfMethod;
     }
 
