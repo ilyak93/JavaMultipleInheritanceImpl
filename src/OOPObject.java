@@ -100,7 +100,7 @@ public class OOPObject {
             OOP4AmbiguousMethodException, OOP4NoSuchMethodException, OOP4MethodInvocationFailedException {
         // TODO: Implement
         Object res = null;
-        ArrayList<Class<?>> argsTypesList = new ArrayList<Class<?>>();
+        List<Class<?>> argsTypesList = new ArrayList<Class<?>>();
         for(Object arg : callArgs){
             argsTypesList.add(arg.getClass());
         }
