@@ -82,11 +82,11 @@ public class OOPObject {
                     if(res == null) {
                         //first found parent-object of method
                         res = ((OOPObject) obj)
-                                .getObjectOfMethod(methodName, argTypes);
+                                .definingObjectRec(methodName, argTypes);
                     } else {
                         //second found parent-object of method
                         tmpRes = ((OOPObject) obj)
-                                .getObjectOfMethod(methodName, argTypes);
+                                .definingObjectRec(methodName, argTypes);
                         if(tmpRes != null) break;
                     }
                 }
