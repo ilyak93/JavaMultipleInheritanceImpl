@@ -11,31 +11,78 @@ import java.util.*;
 public class OOPObject {
 
     private LinkedHashSet<Object> directParents;
-    private HashMap<String, Object> virtualAncestor;
+    private HashMap<Class, Object> virtualAncestors;
+    static int rec_lvl = 0;
+    static private HashMap<Class, Object> initializedVirtualAncestors = new HashMap<>();
 
     public OOPObject() throws OOP4ObjectInstantiationFailedException {
-
+        rec_lvl++;
         Class<?> child = this.getClass();
         OOPParent[] parents = child.getAnnotationsByType(OOPParent.class);
         this.directParents = null;
 //        if (parents == null){
 //            System.out.println("this.directParents.toString()");
 //        }
-        if (parents != null) {
-            this.directParents = new LinkedHashSet<>();
-            for (OOPParent parent: parents) {
-                Constructor<?> parent_ctor = getCompatibleConstructor(parent.parent());
-                if (parent_ctor == null) {
-                    throw new OOP4ObjectInstantiationFailedException();
-                }
-                try {
-                    this.directParents.add(parent_ctor.newInstance());
-                } catch (Exception e) {
-                    throw new OOP4ObjectInstantiationFailedException();
+        if(parents == null) return;
+        this.directParents = new LinkedHashSet<>();
+        for (OOPParent parent: parents) {
+            Constructor<?> parent_ctor = getCompatibleConstructor(parent.parent());
+            if (parent_ctor == null) {
+                throw new OOP4ObjectInstantiationFailedException();
+            }
+            try {
+
+                this.directParents.add(parent_ctor.newInstance());
+            } catch (Exception e) {
+                throw new OOP4ObjectInstantiationFailedException();
+            }
+        }
+        rec_lvl--;
+        this.virtualAncestors = new HashMap<>();
+        if(rec_lvl == 0){
+            virtualInitiation();
+        }
+
+    }
+    
+    private void virtualInitiation(){
+        for(Object parent_obj : directParents){
+            if(parent_obj instanceof OOPObject){
+                ((OOPObject) parent_obj).virtualInitiation();
+            }
+        }
+        Class<?> child = this.getClass();
+        OOPParent[] parents = child.getAnnotationsByType(OOPParent.class);
+        if(parents.length == 0) return;
+
+        for(Class classKey : initializedVirtualAncestors.keySet()){
+            if(this.virtualAncestors.get(classKey) == null) {
+                Object virtual_object = initializedVirtualAncestors.get(classKey);
+                this.virtualAncestors.put(classKey, virtual_object);
+            }
+        }
+
+        boolean atLeastOneVirtual = false;
+        for (OOPParent parent: parents) {
+            if(parent.isVirtual()){
+                atLeastOneVirtual = true;
+                Class<?> virtual_cls = parent.parent();
+                for(Object parentObj : directParents) {
+                    Class<?> parentObjClass = parentObj.getClass();
+                    if(parentObjClass == virtual_cls){
+                        if(this.virtualAncestors.get(parentObjClass) == null) {
+                            this.virtualAncestors.put(parentObjClass, parentObj);
+                        }
+                        if(initializedVirtualAncestors.get(parentObjClass) == null) {
+                            initializedVirtualAncestors.put(parentObjClass, parentObj);
+                        }
+                    }
                 }
             }
         }
-        this.virtualAncestor = new HashMap<>();
+        //if(atLeastOneVirtual == false){
+        //    initializedVirtualAncestors = new HashMap<>();
+        //}
     }
 
     //A inherits from B ?
@@ -68,7 +115,9 @@ public class OOPObject {
 
     public Object definingObject(String methodName, Class<?> ...argTypes)
             throws OOP4AmbiguousMethodException, OOP4NoSuchMethodException {
-        Object res = definingObjectRec(methodName, argTypes);
+        Object res = definingObjectVirtual(methodName, argTypes);
+        if(res != null) return res;
+        res = definingObjectRec(methodName, argTypes);
         if(res == null) throw new OOP4NoSuchMethodException();
         return res;
     }
@@ -81,31 +130,42 @@ public class OOPObject {
         //res = getObjectOfInheritedMethod(this, methodName, argTypes);
         //assert(res!=null);
         //if this does'nt have such method
-        if(res == null) {
-            Object tmpRes = null;
-            for (Object obj : directParents) {
-                //if(obj instanceof OOPObject) {
-                    if(res == null) {
-                        //first found parent-object of method
-                        if(obj instanceof OOPObject) {
-                            res = ((OOPObject) obj)
-                                    .definingObjectRec(methodName, argTypes);
-                        } else {
-                            res = getObjectOfInheritedMethod(obj, methodName, argTypes);
-                        }
-                    } else {
-                        //second found parent-object of method
-                        if(obj instanceof OOPObject) {
-                            tmpRes = ((OOPObject) obj)
-                                    .definingObjectRec(methodName, argTypes);
-                            if (tmpRes != null) break;
-                        } else {
-                            res = getObjectOfInheritedMethod(obj, methodName, argTypes);
-                        }
-                    }
-                //}
+        Object tmpRes = null;
+        for (Object parent_obj : directParents) {
+            //if(obj instanceof OOPObject) {
+            if(res == null) {
+                //first found parent-object of method
+                if(parent_obj instanceof OOPObject) {
+                    res = ((OOPObject) parent_obj)
+                            .definingObjectRec(methodName, argTypes);
+                } else {
+                    res = getObjectOfInheritedMethod(parent_obj, methodName, argTypes);
+                }
+            } else {
+                //second found parent-object of method
+                if(parent_obj instanceof OOPObject) {
+                    tmpRes = ((OOPObject) parent_obj)
+                            .definingObjectRec(methodName, argTypes);
+                    if (tmpRes != null) break;
+                } else {
+                    res = getObjectOfInheritedMethod(parent_obj, methodName, argTypes);
+                }
             }
-            if(res != null && tmpRes != null) throw new OOP4AmbiguousMethodException();
+            //}
+        }
+        if(res != null && tmpRes != null && res != tmpRes) throw new OOP4AmbiguousMethodException();
+        return res;
+    }
+
+    private Object definingObjectVirtual(String methodName, Class<?> ...argTypes)
+            throws OOP4AmbiguousMethodException {
+        Object res = null;
+        for (Object vertex : this.virtualAncestors.values()) {
+            OOPObject defObj = (OOPObject)((OOPObject)vertex).definingObjectRec(methodName, argTypes);
+            if(defObj != null){
+                res = defObj;
+                break;
+            }
         }
         return res;
     }
@@ -218,7 +278,21 @@ public class OOPObject {
             throws OOP4AmbiguousMethodException {
         Object objOfMethod = null;
         objOfMethod = getObjectOfDecalredMethod(methodName, argTypes);
-        //if(objOfMethod != null) return objOfMethod;
+        if(objOfMethod != null) return objOfMethod;
+        for(Class classKey : this.virtualAncestors.keySet()){
+                try {
+                    Object virtualObjOfMethod = this.virtualAncestors
+                            .get(this.virtualAncestors.get(classKey).getClass());
+                    Method[] methods = this.virtualAncestors.get(classKey).getClass().getMethods();
+                    this.virtualAncestors.get(classKey).getClass().getMethod(methodName, argTypes);
+                    objOfMethod = virtualObjOfMethod;
+                    break;
+                } catch (NoSuchMethodException e) {
+                    //e.printStackTrace();
+                    continue;
+                }
+
+        }
         //objOfMethod = getObjectOfInheritedMethod(methodName, argTypes);
         return objOfMethod;
     }
